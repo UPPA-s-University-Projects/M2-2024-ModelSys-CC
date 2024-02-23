@@ -1,0 +1,115 @@
+---
+output:
+  html_document: default
+  pdf_document: default
+---
+
+```{r}
+library(ggplot2)
+```
+
+
+### Fonction
+Deux classes de voiture, 1 et 2, qui arrivent respectivement de la voie A et B. 
+Pour cette simulation, la règle évolue, nous avons la possibilités pour les voiture de type 1 de passer par la voie C ou D (tout droit ou tourner sur la voie des voitures de type 2)
+Si le feu a (voie a) passe au rouge, il y a une probabilité de 0.2 que au prochain tirage la voiture en tête tourne vers la voie C (voie des voitures de type 2), sinon, elle bloque toutes les autres voitures jusqu'à ce que le feu passe au vert.
+Les deux classes ont un temps inter-arrivée suivant une loi expo(0.8)
+Au carrefour, nous avons deux feux, qui sont inversé l'un l'autre (quand l'un est vert, l'autre est rouge)
+Ce changement de feu est gouverné par une loi expo de moyenne 1. Lors d'un changement, la voie au vert laisse passer au maximum 5 voitures.
+Nous voulons d'abord créer le modèle pour la simulation puis lancer t=1000 simulations : 
+
+Nous voulons tracer un grphique : le nombre de voiture arrêtées aux feux par classe dans le temps. Ainsi que la moyenne du nombre de voiture arrêtées au feu par classe
+```{r}
+# Fonction de simulation
+simulerFileAttente = function(lambda, mu, periodes) {
+# Initialisation 
+  feu1 = TRUE
+  feu2 = FALSE
+  t_changement_feu = rexp(1, mu)
+  voiture_t1 = 0
+  voiture_t2 = 0
+  t = 0
+  voiture_laisse_passe=0
+  nbVoitureType1=0
+  nbVoitureType2=0
+  
+  
+  # Boucle de simulation
+  # Simulation des feux
+  for (i in 1:periodes) {
+    
+    # Nouvelle arrivée (suivant une loi expo(0.8)))
+    t_inter_arrivee = rexp(1, lambda)
+    voiture_t1 = voiture_t1 + t_inter_arrivee # Type 1 arrivent de voie A
+    voiture_t2 = voiture_t2 + t_inter_arrivee # Type 2 arriivent de voie B
+  
+    
+    if (feu1) { # Voie A
+      # Le feu change de couleur est passe au rouge
+      if (t_changement_feu < periodes) {
+        feu1 = FALSE
+        feu2 = TRUE
+        t_changement_feu = t + rexp(1, mu)
+        voiture_laisse_passe=0
+        
+        # Le feu a passe au rouge, calcul de la probabilité pour que la voiture en tête tourne vers la voie c (proba=0.2)
+        if (runif(1) < 0.2) {
+          voiture_t1 = voiture_t1 - 1
+        }
+  
+      }
+      # Tant que ce feu est vert, nous ne laissons pas que 5 voitures juqsu'à la prochaine fois que le feu passe au vert
+      if (voiture_laisse_passe <= 5) {
+        voiture_t1 = voiture_t1 - 1
+        voiture_laisse_passe=voiture_laisse_passe+1
+      }
+      
+    } else { # Voie B
+      if (t_changement_feu < periodes) {
+        feu1 = TRUE
+        feu2 = FALSE
+        t_changement_feu = t + rexp(1, mu)
+        voiture_laisse_passe=0
+      }
+      if (voiture_laisse_passe <= 5) {
+        voiture_t2 = voiture_t2 - 1
+        voiture_laisse_passe=voiture_laisse_passe+1
+      }
+    }
+    nbVoitureType1[i] = voiture_t1
+    nbVoitureType2[i] = voiture_t2
+  }
+  
+  
+  # Tracer le graphique en courbe pour montrer l'évolution du nombre de voiture par type dans le système
+
+  # Calcul de la moyenne du nombre de voiture par type dans le système
+  moyenne_voiture_t1 = mean(voiture_t1)
+  moyenne_voiture_t2 = mean(voiture_t2)
+  print(paste("Moyenne du nombre de voiture type 1 dans le système: ", moyenne_voiture_t1))
+  print(paste("Moyenne du nombre de voiture type 2 dans le système: ", moyenne_voiture_t2))
+  
+  # Tracer le graphique
+  # Nous voulons voir l'évolution du nombre de voiture par type dans le système pour chaque unité de temps
+  
+  # Création du data frame
+  data = data.frame(Temps=1:periodes, VoitureType1=voiture_t1, VoitureType2=voiture_t2)
+  
+  # Tracé du graphique
+  ggplot(data, aes(x=Temps)) +
+    geom_line(aes(y=nbVoitureType1, color="Type 1")) +
+    geom_line(aes(y=nbVoitureType2, color="Type 2")) +
+    labs(title="Evolution du nombre de voiture par type dans le système", x="Temps", y="Nombre de voiture") +
+    scale_color_manual(values=c("Type 1"="blue", "Type 2"="red")) +
+    theme_minimal()
+}
+```
+
+```{r}
+# Simulation
+simulerFileAttente(0.8, 1, 1000)
+```
+
+  
+  
+  
